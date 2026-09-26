@@ -1,8 +1,24 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
+from app.api import issues, projects, stories
 from app.config import settings
+from app.database import Base, engine
+import app.models  # noqa: F401  # register ORM tables
 
-app = FastAPI(title=settings.app_name, debug=settings.debug)
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    yield
+
+
+app = FastAPI(title=settings.app_name, debug=settings.debug, lifespan=lifespan)
+
+app.include_router(projects.router, prefix="/api")
+app.include_router(stories.router, prefix="/api")
+app.include_router(issues.router, prefix="/api")
 
 
 @app.get("/health")

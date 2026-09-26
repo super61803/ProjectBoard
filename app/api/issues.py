@@ -1,0 +1,90 @@
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.orm import Session
+
+from app.database import get_db
+from app.models import Issue, Project, Story
+from app.schemas import IssueCreate, IssueRead, IssueUpdate
+
+router = APIRouter(prefix="/issues", tags=["issues"])
+
+
+@router.get("", response_model=list[IssueRead])
+def list_issues(
+    project_id: int | None = Query(default=None),
+    story_id: int | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> list[Issue]:
+    query = db.query(Issue)
+    if project_id is not None:
+        query = query.filter(Issue.project_id == project_id)
+    if story_id is not None:
+        query = query.filter(Issue.story_id == story_id)
+    return query.order_by(Issue.id.desc()).all()
+
+
+@router.post("", response_model=IssueRead, status_code=status.HTTP_201_CREATED)
+def create_issue(payload: IssueCreate, db: Session = Depends(get_db)) -> Issue:
+    project = db.get(Project, payload.project_id)
+    if not project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    if payload.story_id is not None:
+        story = db.get(Story, payload.story_id)
+        if not story or story.project_id != payload.project_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Story does not belong to project")
+
+    issue = Issue(
+        project_id=payload.project_id,
+        story_id=payload.story_id,
+        title=payload.title,
+        description=payload.description,
+        status=payload.status.value,
+        priority=payload.priority.value,
+    )
+    db.add(issue)
+    db.commit()
+    db.refresh(issue)
+    return issue
+
+
+@router.get("/{issue_id}", response_model=IssueRead)
+def get_issue(issue_id: int, db: Session = Depends(get_db)) -> Issue:
+    issue = db.get(Issue, issue_id)
+    if not issue:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
+    return issue
+
+
+@router.patch("/{issue_id}", response_model=IssueRead)
+def update_issue(issue_id: int, payload: IssueUpdate, db: Session = Depends(get_db)) -> Issue:
+    issue = db.get(Issue, issue_id)
+    if not issue:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
+
+    data = payload.model_dump(exclude_unset=True)
+
+    if "story_id" in data and data["story_id"] is not None:
+        story = db.get(Story, data["story_id"])
+        if not story or story.project_id != issue.project_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Story does not belong to project")
+
+    if "status" in data and data["status"] is not None:
+        data["status"] = data["status"].value
+    if "priority" in data and data["priority"] is not None:
+        data["priority"] = data["priority"].value
+
+    for key, value in data.items():
+        setattr(issue, key, value)
+
+    db.commit()
+    db.refresh(issue)
+    return issue
+
+
+@router.delete("/{issue_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_issue(issue_id: int, db: Session = Depends(get_db)) -> None:
+    issue = db.get(Issue, issue_id)
+    if not issue:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
+    db.delete(issue)
+    db.commit()
