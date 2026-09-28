@@ -86,6 +86,7 @@ class Issue(Base):
     project: Mapped[Project] = relationship(back_populates="issues")
     story: Mapped[Story | None] = relationship(back_populates="issues")
     assignee: Mapped["User | None"] = relationship(back_populates="assigned_issues")
+    comments: Mapped[list["Comment"]] = relationship(back_populates="issue", cascade="all, delete-orphan")
 
 
 class User(Base):
@@ -98,6 +99,7 @@ class User(Base):
 
     memberships: Mapped[list["ProjectMember"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     assigned_issues: Mapped[list[Issue]] = relationship(back_populates="assignee")
+    comments: Mapped[list["Comment"]] = relationship(back_populates="author")
 
 
 class ProjectMember(Base):
@@ -112,3 +114,19 @@ class ProjectMember(Base):
 
     project: Mapped[Project] = relationship(back_populates="members")
     user: Mapped[User] = relationship(back_populates="memberships")
+
+
+class Comment(Base):
+    __tablename__ = "comments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    issue_id: Mapped[int] = mapped_column(ForeignKey("issues.id", ondelete="CASCADE"), index=True)
+    author_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    body: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    issue: Mapped[Issue] = relationship(back_populates="comments")
+    author: Mapped[User] = relationship(back_populates="comments")

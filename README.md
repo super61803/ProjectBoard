@@ -39,3 +39,8 @@ API docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 - App bootstrap and settings
 - Project / story / issue data models
 - CRUD API routes for the core entities
+
+## Day-2 scope
+
+- Project members and issue assignees
+- Comments on issues
