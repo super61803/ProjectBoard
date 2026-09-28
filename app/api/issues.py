@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.api.members import require_project_member
 from app.database import get_db
 from app.models import Issue, Project, Story
 from app.schemas import IssueCreate, IssueRead, IssueUpdate
@@ -33,6 +34,9 @@ def create_issue(payload: IssueCreate, db: Session = Depends(get_db)) -> Issue:
         if not story or story.project_id != payload.project_id:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Story does not belong to project")
 
+    if payload.assignee_id is not None:
+        require_project_member(db, payload.project_id, payload.assignee_id)
+
     issue = Issue(
         project_id=payload.project_id,
         story_id=payload.story_id,
@@ -40,6 +44,7 @@ def create_issue(payload: IssueCreate, db: Session = Depends(get_db)) -> Issue:
         description=payload.description,
         status=payload.status.value,
         priority=payload.priority.value,
+        assignee_id=payload.assignee_id,
     )
     db.add(issue)
     db.commit()
@@ -72,6 +77,8 @@ def update_issue(issue_id: int, payload: IssueUpdate, db: Session = Depends(get_
         data["status"] = data["status"].value
     if "priority" in data and data["priority"] is not None:
         data["priority"] = data["priority"].value
+    if data.get("assignee_id") is not None:
+        require_project_member(db, issue.project_id, data["assignee_id"])
 
     for key, value in data.items():
         setattr(issue, key, value)

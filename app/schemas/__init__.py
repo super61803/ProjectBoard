@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models import IssuePriority, IssueStatus, StoryStatus
+from app.models import IssuePriority, IssueStatus, MemberRole, StoryStatus
 
 
 class ProjectCreate(BaseModel):
@@ -60,6 +60,7 @@ class IssueCreate(BaseModel):
     description: str | None = None
     status: IssueStatus = IssueStatus.open
     priority: IssuePriority = IssuePriority.medium
+    assignee_id: int | None = None
 
 
 class IssueUpdate(BaseModel):
@@ -68,6 +69,7 @@ class IssueUpdate(BaseModel):
     description: str | None = None
     status: IssueStatus | None = None
     priority: IssuePriority | None = None
+    assignee_id: int | None = None
 
 
 class IssueRead(BaseModel):
@@ -80,5 +82,35 @@ class IssueRead(BaseModel):
     description: str | None
     status: str
     priority: str
+    assignee_id: int | None
     created_at: datetime
     updated_at: datetime
+
+
+class UserCreate(BaseModel):
+    email: str = Field(min_length=3, max_length=255)
+    display_name: str = Field(min_length=1, max_length=120)
+
+
+class UserRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    email: str
+    display_name: str
+    created_at: datetime
+
+
+class MemberCreate(BaseModel):
+    user_id: int
+    role: MemberRole = MemberRole.member
+
+
+class MemberRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    project_id: int
+    user_id: int
+    role: str
+    created_at: datetime
