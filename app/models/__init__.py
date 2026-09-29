@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import Column, DateTime, ForeignKey, String, Table, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -48,6 +48,7 @@ class Project(Base):
     stories: Mapped[list["Story"]] = relationship(back_populates="project", cascade="all, delete-orphan")
     issues: Mapped[list["Issue"]] = relationship(back_populates="project", cascade="all, delete-orphan")
     members: Mapped[list["ProjectMember"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    labels: Mapped[list["Label"]] = relationship(back_populates="project", cascade="all, delete-orphan")
 
 
 class Story(Base):
@@ -66,6 +67,14 @@ class Story(Base):
 
     project: Mapped[Project] = relationship(back_populates="stories")
     issues: Mapped[list["Issue"]] = relationship(back_populates="story")
+
+
+issue_labels = Table(
+    "issue_labels",
+    Base.metadata,
+    Column("issue_id", ForeignKey("issues.id", ondelete="CASCADE"), primary_key=True),
+    Column("label_id", ForeignKey("labels.id", ondelete="CASCADE"), primary_key=True),
+)
 
 
 class Issue(Base):
@@ -91,6 +100,7 @@ class Issue(Base):
     story: Mapped[Story | None] = relationship(back_populates="issues")
     assignee: Mapped["User | None"] = relationship(back_populates="assigned_issues")
     comments: Mapped[list["Comment"]] = relationship(back_populates="issue", cascade="all, delete-orphan")
+    labels: Mapped[list["Label"]] = relationship(secondary=issue_labels, back_populates="issues")
 
 
 class User(Base):
@@ -134,3 +144,17 @@ class Comment(Base):
 
     issue: Mapped[Issue] = relationship(back_populates="comments")
     author: Mapped[User] = relationship(back_populates="comments")
+
+
+class Label(Base):
+    __tablename__ = "labels"
+    __table_args__ = (UniqueConstraint("project_id", "name", name="uq_label_name"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(40))
+    color: Mapped[str] = mapped_column(String(7), default="#6B7280")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    project: Mapped[Project] = relationship(back_populates="labels")
+    issues: Mapped[list[Issue]] = relationship(secondary=issue_labels, back_populates="labels")

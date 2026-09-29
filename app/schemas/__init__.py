@@ -55,6 +55,25 @@ class StoryRead(BaseModel):
     updated_at: datetime
 
 
+class LabelCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=40)
+    color: str = Field(default="#6B7280", min_length=4, max_length=7)
+
+
+class LabelRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    project_id: int
+    name: str
+    color: str
+    created_at: datetime
+
+
+class IssueLabelAttach(BaseModel):
+    label_id: int
+
+
 class IssueCreate(BaseModel):
     project_id: int
     story_id: int | None = None
@@ -87,6 +106,7 @@ class IssueRead(BaseModel):
     status: str
     priority: str
     assignee_id: int | None
+    labels: list[LabelRead] = []
     created_at: datetime
     updated_at: datetime
 
