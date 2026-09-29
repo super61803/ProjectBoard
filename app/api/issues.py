@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.api.members import require_project_member
 from app.database import get_db
-from app.models import Issue, Project, Story
+from app.models import Issue, IssuePriority, IssueStatus, Label, Project, Story
 from app.schemas import IssueCreate, IssueRead, IssueUpdate
 
 router = APIRouter(prefix="/issues", tags=["issues"])
@@ -14,6 +14,11 @@ router = APIRouter(prefix="/issues", tags=["issues"])
 def list_issues(
     project_id: int | None = Query(default=None),
     story_id: int | None = Query(default=None),
+    status_filter: IssueStatus | None = Query(default=None, alias="status"),
+    priority: IssuePriority | None = Query(default=None),
+    assignee_id: int | None = Query(default=None),
+    label_id: int | None = Query(default=None),
+    q: str | None = Query(default=None, min_length=1),
     db: Session = Depends(get_db),
 ) -> list[Issue]:
     query = db.query(Issue)
@@ -21,6 +26,16 @@ def list_issues(
         query = query.filter(Issue.project_id == project_id)
     if story_id is not None:
         query = query.filter(Issue.story_id == story_id)
+    if status_filter is not None:
+        query = query.filter(Issue.status == status_filter.value)
+    if priority is not None:
+        query = query.filter(Issue.priority == priority.value)
+    if assignee_id is not None:
+        query = query.filter(Issue.assignee_id == assignee_id)
+    if label_id is not None:
+        query = query.filter(Issue.labels.any(Label.id == label_id))
+    if q:
+        query = query.filter(Issue.title.ilike(f"%{q}%"))
     return query.order_by(Issue.id.desc()).all()
 
 

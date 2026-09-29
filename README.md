@@ -44,3 +44,9 @@ API docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
 - Project members and issue assignees
 - Comments on issues
+
+## Day-3 scope
+
+- Project keys and sequential issue keys
+- Labels on issues
+- Issue list filters by status, priority, assignee, label, and title
