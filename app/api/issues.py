@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.members import require_project_member
@@ -37,8 +38,12 @@ def create_issue(payload: IssueCreate, db: Session = Depends(get_db)) -> Issue:
     if payload.assignee_id is not None:
         require_project_member(db, payload.project_id, payload.assignee_id)
 
+    current = db.query(func.max(Issue.number)).filter(Issue.project_id == project.id).scalar()
+    number = (current or 0) + 1
     issue = Issue(
         project_id=payload.project_id,
+        number=number,
+        key=f"{project.key}-{number}",
         story_id=payload.story_id,
         title=payload.title,
         description=payload.description,

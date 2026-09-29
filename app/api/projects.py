@@ -19,7 +19,11 @@ def create_project(payload: ProjectCreate, db: Session = Depends(get_db)) -> Pro
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Project name already exists")
 
-    project = Project(name=payload.name, description=payload.description)
+    key = payload.key.upper()
+    if db.query(Project).filter(Project.key == key).first():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Project key already exists")
+
+    project = Project(key=key, name=payload.name, description=payload.description)
     db.add(project)
     db.commit()
     db.refresh(project)

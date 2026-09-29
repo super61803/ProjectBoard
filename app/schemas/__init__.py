@@ -6,6 +6,7 @@ from app.models import IssuePriority, IssueStatus, MemberRole, StoryStatus
 
 
 class ProjectCreate(BaseModel):
+    key: str = Field(min_length=2, max_length=10, pattern=r"^[A-Za-z][A-Za-z0-9]+$")
     name: str = Field(min_length=1, max_length=120)
     description: str | None = None
 
@@ -19,6 +20,7 @@ class ProjectRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    key: str
     name: str
     description: str | None
     created_at: datetime
@@ -77,6 +79,8 @@ class IssueRead(BaseModel):
 
     id: int
     project_id: int
+    number: int
+    key: str
     story_id: int | None
     title: str
     description: str | None
