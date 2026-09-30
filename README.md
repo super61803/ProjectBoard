@@ -50,3 +50,9 @@ API docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 - Project keys and sequential issue keys
 - Labels on issues
 - Issue list filters by status, priority, assignee, label, and title
+
+## Day-4 scope
+
+- Sprints with planned, active, and completed states
+- Assign issues to a sprint
+- Sprint board grouped by issue status

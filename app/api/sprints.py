@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Project, Sprint, SprintStatus
-from app.schemas import SprintCreate, SprintRead, SprintUpdate
+from app.models import Issue, IssueStatus, Project, Sprint, SprintStatus
+from app.schemas import SprintBoard, SprintCreate, SprintRead, SprintUpdate
 
 router = APIRouter(prefix="/sprints", tags=["sprints"])
 
@@ -58,6 +58,19 @@ def get_sprint(sprint_id: int, db: Session = Depends(get_db)) -> Sprint:
     if not sprint:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sprint not found")
     return sprint
+
+
+@router.get("/{sprint_id}/board", response_model=SprintBoard)
+def sprint_board(sprint_id: int, db: Session = Depends(get_db)) -> dict[str, object]:
+    sprint = db.get(Sprint, sprint_id)
+    if not sprint:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sprint not found")
+
+    issues = db.query(Issue).filter(Issue.sprint_id == sprint_id).order_by(Issue.id).all()
+    columns: dict[str, list[Issue]] = {item.value: [] for item in IssueStatus}
+    for issue in issues:
+        columns.setdefault(issue.status, []).append(issue)
+    return {"sprint": sprint, "columns": columns}
 
 
 @router.patch("/{sprint_id}", response_model=SprintRead)

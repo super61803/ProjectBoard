@@ -19,6 +19,7 @@ def list_issues(
     priority: IssuePriority | None = Query(default=None),
     assignee_id: int | None = Query(default=None),
     label_id: int | None = Query(default=None),
+    sprint_id: int | None = Query(default=None),
     q: str | None = Query(default=None, min_length=1),
     db: Session = Depends(get_db),
 ) -> list[Issue]:
@@ -35,6 +36,8 @@ def list_issues(
         query = query.filter(Issue.assignee_id == assignee_id)
     if label_id is not None:
         query = query.filter(Issue.labels.any(Label.id == label_id))
+    if sprint_id is not None:
+        query = query.filter(Issue.sprint_id == sprint_id)
     if q:
         query = query.filter(Issue.title.ilike(f"%{q}%"))
     return query.order_by(Issue.id.desc()).all()

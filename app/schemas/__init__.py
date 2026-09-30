@@ -172,6 +172,11 @@ class SprintRead(BaseModel):
     updated_at: datetime
 
 
+class SprintBoard(BaseModel):
+    sprint: SprintRead
+    columns: dict[str, list[IssueRead]]
+
+
 class CommentCreate(BaseModel):
     author_id: int
     body: str = Field(min_length=1)
