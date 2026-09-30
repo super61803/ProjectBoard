@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
 
-from sqlalchemy import Column, DateTime, ForeignKey, String, Table, Text, UniqueConstraint, func
+from sqlalchemy import Column, Date, DateTime, ForeignKey, String, Table, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -33,6 +33,12 @@ class MemberRole(str, Enum):
     member = "member"
 
 
+class SprintStatus(str, Enum):
+    planned = "planned"
+    active = "active"
+    completed = "completed"
+
+
 class Project(Base):
     __tablename__ = "projects"
 
@@ -49,6 +55,7 @@ class Project(Base):
     issues: Mapped[list["Issue"]] = relationship(back_populates="project", cascade="all, delete-orphan")
     members: Mapped[list["ProjectMember"]] = relationship(back_populates="project", cascade="all, delete-orphan")
     labels: Mapped[list["Label"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    sprints: Mapped[list["Sprint"]] = relationship(back_populates="project", cascade="all, delete-orphan")
 
 
 class Story(Base):
@@ -91,6 +98,7 @@ class Issue(Base):
     status: Mapped[str] = mapped_column(String(32), default=IssueStatus.open.value, index=True)
     priority: Mapped[str] = mapped_column(String(32), default=IssuePriority.medium.value, index=True)
     assignee_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    sprint_id: Mapped[int | None] = mapped_column(ForeignKey("sprints.id", ondelete="SET NULL"), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -101,6 +109,7 @@ class Issue(Base):
     assignee: Mapped["User | None"] = relationship(back_populates="assigned_issues")
     comments: Mapped[list["Comment"]] = relationship(back_populates="issue", cascade="all, delete-orphan")
     labels: Mapped[list["Label"]] = relationship(secondary=issue_labels, back_populates="issues")
+    sprint: Mapped["Sprint | None"] = relationship(back_populates="issues")
 
 
 class User(Base):
@@ -158,3 +167,22 @@ class Label(Base):
 
     project: Mapped[Project] = relationship(back_populates="labels")
     issues: Mapped[list[Issue]] = relationship(secondary=issue_labels, back_populates="labels")
+
+
+class Sprint(Base):
+    __tablename__ = "sprints"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    goal: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default=SprintStatus.planned.value, index=True)
+    start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    project: Mapped[Project] = relationship(back_populates="sprints")
+    issues: Mapped[list[Issue]] = relationship(back_populates="sprint")

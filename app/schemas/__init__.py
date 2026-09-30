@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -82,6 +82,7 @@ class IssueCreate(BaseModel):
     status: IssueStatus = IssueStatus.open
     priority: IssuePriority = IssuePriority.medium
     assignee_id: int | None = None
+    sprint_id: int | None = None
 
 
 class IssueUpdate(BaseModel):
@@ -91,6 +92,7 @@ class IssueUpdate(BaseModel):
     status: IssueStatus | None = None
     priority: IssuePriority | None = None
     assignee_id: int | None = None
+    sprint_id: int | None = None
 
 
 class IssueRead(BaseModel):
@@ -106,6 +108,7 @@ class IssueRead(BaseModel):
     status: str
     priority: str
     assignee_id: int | None
+    sprint_id: int | None
     labels: list[LabelRead] = []
     created_at: datetime
     updated_at: datetime
@@ -138,6 +141,35 @@ class MemberRead(BaseModel):
     user_id: int
     role: str
     created_at: datetime
+
+
+class SprintCreate(BaseModel):
+    project_id: int
+    name: str = Field(min_length=1, max_length=120)
+    goal: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+
+
+class SprintUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    goal: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+
+
+class SprintRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    project_id: int
+    name: str
+    goal: str | None
+    status: str
+    start_date: date | None
+    end_date: date | None
+    created_at: datetime
+    updated_at: datetime
 
 
 class CommentCreate(BaseModel):
