@@ -3,6 +3,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.members import require_project_member
+from app.api.sprints import require_assignable_sprint
 from app.database import get_db
 from app.models import Issue, IssuePriority, IssueStatus, Label, Project, Story
 from app.schemas import IssueCreate, IssueRead, IssueUpdate
@@ -52,6 +53,8 @@ def create_issue(payload: IssueCreate, db: Session = Depends(get_db)) -> Issue:
 
     if payload.assignee_id is not None:
         require_project_member(db, payload.project_id, payload.assignee_id)
+    if payload.sprint_id is not None:
+        require_assignable_sprint(db, payload.project_id, payload.sprint_id)
 
     current = db.query(func.max(Issue.number)).filter(Issue.project_id == project.id).scalar()
     number = (current or 0) + 1
@@ -65,6 +68,7 @@ def create_issue(payload: IssueCreate, db: Session = Depends(get_db)) -> Issue:
         status=payload.status.value,
         priority=payload.priority.value,
         assignee_id=payload.assignee_id,
+        sprint_id=payload.sprint_id,
     )
     db.add(issue)
     db.commit()
@@ -99,6 +103,8 @@ def update_issue(issue_id: int, payload: IssueUpdate, db: Session = Depends(get_
         data["priority"] = data["priority"].value
     if data.get("assignee_id") is not None:
         require_project_member(db, issue.project_id, data["assignee_id"])
+    if data.get("sprint_id") is not None:
+        require_assignable_sprint(db, issue.project_id, data["sprint_id"])
 
     for key, value in data.items():
         setattr(issue, key, value)
