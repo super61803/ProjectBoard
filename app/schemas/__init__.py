@@ -129,6 +129,10 @@ class IssueLinkRead(BaseModel):
     created_at: datetime
 
 
+class IssueDetail(IssueRead):
+    links: list[IssueLinkRead] = []
+
+
 class UserCreate(BaseModel):
     email: str = Field(min_length=3, max_length=255)
     display_name: str = Field(min_length=1, max_length=120)

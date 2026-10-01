@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.api.members import require_project_member
 from app.api.sprints import require_assignable_sprint
 from app.database import get_db
-from app.models import Issue, IssuePriority, IssueStatus, Label, Project, Story
-from app.schemas import IssueCreate, IssueRead, IssueUpdate
+from app.models import Issue, IssueLink, IssueLinkType, IssuePriority, IssueStatus, Label, Project, Story
+from app.schemas import IssueCreate, IssueDetail, IssueLinkRead, IssueRead, IssueUpdate
 
 router = APIRouter(prefix="/issues", tags=["issues"])
 
@@ -20,6 +20,7 @@ def list_issues(
     assignee_id: int | None = Query(default=None),
     label_id: int | None = Query(default=None),
     sprint_id: int | None = Query(default=None),
+    blocked: bool | None = Query(default=None),
     q: str | None = Query(default=None, min_length=1),
     db: Session = Depends(get_db),
 ) -> list[Issue]:
@@ -38,6 +39,14 @@ def list_issues(
         query = query.filter(Issue.labels.any(Label.id == label_id))
     if sprint_id is not None:
         query = query.filter(Issue.sprint_id == sprint_id)
+    if blocked is not None:
+        open_block = (IssueLink.link_type == IssueLinkType.blocks.value) & (
+            IssueLink.source.has(Issue.status != IssueStatus.closed.value)
+        )
+        if blocked:
+            query = query.filter(Issue.inbound_links.any(open_block))
+        else:
+            query = query.filter(~Issue.inbound_links.any(open_block))
     if q:
         query = query.filter(Issue.title.ilike(f"%{q}%"))
     return query.order_by(Issue.id.desc()).all()
@@ -79,12 +88,20 @@ def create_issue(payload: IssueCreate, db: Session = Depends(get_db)) -> Issue:
     return issue
 
 
-@router.get("/{issue_id}", response_model=IssueRead)
-def get_issue(issue_id: int, db: Session = Depends(get_db)) -> Issue:
+@router.get("/{issue_id}", response_model=IssueDetail)
+def get_issue(issue_id: int, db: Session = Depends(get_db)) -> IssueDetail:
     issue = db.get(Issue, issue_id)
     if not issue:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
-    return issue
+    links = (
+        db.query(IssueLink)
+        .filter(or_(IssueLink.source_id == issue_id, IssueLink.target_id == issue_id))
+        .order_by(IssueLink.id)
+        .all()
+    )
+    detail = IssueDetail.model_validate(issue)
+    detail.links = [IssueLinkRead.model_validate(link) for link in links]
+    return detail
 
 
 @router.patch("/{issue_id}", response_model=IssueRead)

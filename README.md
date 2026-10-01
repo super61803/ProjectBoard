@@ -56,3 +56,9 @@ API docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 - Sprints with planned, active, and completed states
 - Assign issues to a sprint
 - Sprint board grouped by issue status
+
+## Day-5 scope
+
+- Link issues with blocks, relates, and duplicates
+- Show those links on an issue
+- Filter the issue list to blocked work
