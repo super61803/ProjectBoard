@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from enum import Enum
 
-from sqlalchemy import Column, Date, DateTime, ForeignKey, String, Table, Text, UniqueConstraint, func
+from sqlalchemy import CheckConstraint, Column, Date, DateTime, ForeignKey, String, Table, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -37,6 +37,12 @@ class SprintStatus(str, Enum):
     planned = "planned"
     active = "active"
     completed = "completed"
+
+
+class IssueLinkType(str, Enum):
+    blocks = "blocks"
+    relates = "relates"
+    duplicates = "duplicates"
 
 
 class Project(Base):
@@ -110,6 +116,16 @@ class Issue(Base):
     comments: Mapped[list["Comment"]] = relationship(back_populates="issue", cascade="all, delete-orphan")
     labels: Mapped[list["Label"]] = relationship(secondary=issue_labels, back_populates="issues")
     sprint: Mapped["Sprint | None"] = relationship(back_populates="issues")
+    outbound_links: Mapped[list["IssueLink"]] = relationship(
+        back_populates="source",
+        foreign_keys="IssueLink.source_id",
+        cascade="all, delete-orphan",
+    )
+    inbound_links: Mapped[list["IssueLink"]] = relationship(
+        back_populates="target",
+        foreign_keys="IssueLink.target_id",
+        passive_deletes=True,
+    )
 
 
 class User(Base):
@@ -186,3 +202,20 @@ class Sprint(Base):
 
     project: Mapped[Project] = relationship(back_populates="sprints")
     issues: Mapped[list[Issue]] = relationship(back_populates="sprint")
+
+
+class IssueLink(Base):
+    __tablename__ = "issue_links"
+    __table_args__ = (
+        UniqueConstraint("source_id", "target_id", "link_type", name="uq_issue_link"),
+        CheckConstraint("source_id != target_id", name="ck_issue_link_distinct"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source_id: Mapped[int] = mapped_column(ForeignKey("issues.id", ondelete="CASCADE"), index=True)
+    target_id: Mapped[int] = mapped_column(ForeignKey("issues.id", ondelete="CASCADE"), index=True)
+    link_type: Mapped[str] = mapped_column(String(32), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    source: Mapped[Issue] = relationship(back_populates="outbound_links", foreign_keys=[source_id])
+    target: Mapped[Issue] = relationship(back_populates="inbound_links", foreign_keys=[target_id])

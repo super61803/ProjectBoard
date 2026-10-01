@@ -2,7 +2,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models import IssuePriority, IssueStatus, MemberRole, StoryStatus
+from app.models import IssueLinkType, IssuePriority, IssueStatus, MemberRole, StoryStatus
 
 
 class ProjectCreate(BaseModel):
@@ -112,6 +112,21 @@ class IssueRead(BaseModel):
     labels: list[LabelRead] = []
     created_at: datetime
     updated_at: datetime
+
+
+class IssueLinkCreate(BaseModel):
+    target_id: int
+    link_type: IssueLinkType
+
+
+class IssueLinkRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    source_id: int
+    target_id: int
+    link_type: str
+    created_at: datetime
 
 
 class UserCreate(BaseModel):
