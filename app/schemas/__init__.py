@@ -210,3 +210,16 @@ class CommentRead(BaseModel):
     body: str
     created_at: datetime
     updated_at: datetime
+
+
+class ActivityRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    issue_id: int
+    actor_id: int | None
+    action: str
+    field: str | None
+    old_value: str | None
+    new_value: str | None
+    created_at: datetime

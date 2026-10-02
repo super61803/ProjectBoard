@@ -45,6 +45,14 @@ class IssueLinkType(str, Enum):
     duplicates = "duplicates"
 
 
+class ActivityAction(str, Enum):
+    created = "created"
+    updated = "updated"
+    commented = "commented"
+    linked = "linked"
+    unlinked = "unlinked"
+
+
 class Project(Base):
     __tablename__ = "projects"
 
@@ -126,6 +134,7 @@ class Issue(Base):
         foreign_keys="IssueLink.target_id",
         passive_deletes=True,
     )
+    activities: Mapped[list["Activity"]] = relationship(back_populates="issue", cascade="all, delete-orphan")
 
 
 class User(Base):
@@ -219,3 +228,19 @@ class IssueLink(Base):
 
     source: Mapped[Issue] = relationship(back_populates="outbound_links", foreign_keys=[source_id])
     target: Mapped[Issue] = relationship(back_populates="inbound_links", foreign_keys=[target_id])
+
+
+class Activity(Base):
+    __tablename__ = "activities"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    issue_id: Mapped[int] = mapped_column(ForeignKey("issues.id", ondelete="CASCADE"), index=True)
+    actor_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    action: Mapped[str] = mapped_column(String(32), index=True)
+    field: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    old_value: Mapped[str | None] = mapped_column(Text, nullable=True)
+    new_value: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    issue: Mapped[Issue] = relationship(back_populates="activities")
+    actor: Mapped["User | None"] = relationship()
