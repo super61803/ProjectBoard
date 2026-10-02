@@ -2,8 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from app.activity import record_activity
 from app.database import get_db
-from app.models import Issue, IssueLink
+from app.models import ActivityAction, Issue, IssueLink
 from app.schemas import IssueLinkCreate, IssueLinkRead
 
 router = APIRouter(tags=["links"])
@@ -52,6 +53,22 @@ def create_link(issue_id: int, payload: IssueLinkCreate, db: Session = Depends(g
 
     link = IssueLink(source_id=source.id, target_id=target.id, link_type=payload.link_type.value)
     db.add(link)
+    record_activity(
+        db,
+        source.id,
+        ActivityAction.linked,
+        actor_id=payload.actor_id,
+        field=payload.link_type.value,
+        new_value=target.key,
+    )
+    record_activity(
+        db,
+        target.id,
+        ActivityAction.linked,
+        actor_id=payload.actor_id,
+        field=payload.link_type.value,
+        new_value=source.key,
+    )
     db.commit()
     db.refresh(link)
     return link
@@ -62,5 +79,19 @@ def delete_link(link_id: int, db: Session = Depends(get_db)) -> None:
     link = db.get(IssueLink, link_id)
     if not link:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Link not found")
+    record_activity(
+        db,
+        link.source_id,
+        ActivityAction.unlinked,
+        field=link.link_type,
+        old_value=link.target.key,
+    )
+    record_activity(
+        db,
+        link.target_id,
+        ActivityAction.unlinked,
+        field=link.link_type,
+        old_value=link.source.key,
+    )
     db.delete(link)
     db.commit()

@@ -119,6 +119,7 @@ class IssueRead(BaseModel):
 class IssueLinkCreate(BaseModel):
     target_id: int
     link_type: IssueLinkType
+    actor_id: int | None = None
 
 
 class IssueLinkRead(BaseModel):

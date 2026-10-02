@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.activity import record_activity
 from app.api.members import require_project_member
 from app.database import get_db
-from app.models import Comment, Issue
+from app.models import ActivityAction, Comment, Issue
 from app.schemas import CommentCreate, CommentRead
 
 router = APIRouter(tags=["comments"])
@@ -27,6 +28,13 @@ def create_comment(issue_id: int, payload: CommentCreate, db: Session = Depends(
 
     comment = Comment(issue_id=issue_id, author_id=payload.author_id, body=payload.body)
     db.add(comment)
+    record_activity(
+        db,
+        issue_id,
+        ActivityAction.commented,
+        actor_id=payload.author_id,
+        new_value=payload.body,
+    )
     db.commit()
     db.refresh(comment)
     return comment

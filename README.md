@@ -62,3 +62,9 @@ API docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 - Link issues with blocks, relates, and duplicates
 - Show those links on an issue
 - Filter the issue list to blocked work
+
+## Day-6 scope
+
+- Activity log for each issue
+- Record creates, field changes, comments, and links
+- List an issue's history

@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api import comments, issues, labels, links, members, projects, sprints, stories
+from app.api import activity, comments, issues, labels, links, members, projects, sprints, stories
 from app.config import settings
 from app.database import Base, engine
 import app.models  # noqa: F401  # register ORM tables
@@ -24,6 +24,7 @@ app.include_router(comments.router, prefix="/api")
 app.include_router(labels.router, prefix="/api")
 app.include_router(sprints.router, prefix="/api")
 app.include_router(links.router, prefix="/api")
+app.include_router(activity.router, prefix="/api")
 
 
 @app.get("/health")
