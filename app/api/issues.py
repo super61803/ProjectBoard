@@ -2,10 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
+from app.activity import record_activity, record_issue_changes
 from app.api.members import require_project_member
 from app.api.sprints import require_assignable_sprint
 from app.database import get_db
-from app.models import Issue, IssueLink, IssueLinkType, IssuePriority, IssueStatus, Label, Project, Story
+from app.models import ActivityAction, Issue, IssueLink, IssueLinkType, IssuePriority, IssueStatus, Label, Project, Story
 from app.schemas import IssueCreate, IssueDetail, IssueLinkRead, IssueRead, IssueUpdate
 
 router = APIRouter(prefix="/issues", tags=["issues"])
@@ -67,6 +68,8 @@ def create_issue(payload: IssueCreate, db: Session = Depends(get_db)) -> Issue:
         require_project_member(db, payload.project_id, payload.assignee_id)
     if payload.sprint_id is not None:
         require_assignable_sprint(db, payload.project_id, payload.sprint_id)
+    if payload.actor_id is not None:
+        require_project_member(db, payload.project_id, payload.actor_id)
 
     current = db.query(func.max(Issue.number)).filter(Issue.project_id == project.id).scalar()
     number = (current or 0) + 1
@@ -83,6 +86,8 @@ def create_issue(payload: IssueCreate, db: Session = Depends(get_db)) -> Issue:
         sprint_id=payload.sprint_id,
     )
     db.add(issue)
+    db.flush()
+    record_activity(db, issue.id, ActivityAction.created, actor_id=payload.actor_id, new_value=issue.key)
     db.commit()
     db.refresh(issue)
     return issue
@@ -111,6 +116,9 @@ def update_issue(issue_id: int, payload: IssueUpdate, db: Session = Depends(get_
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
 
     data = payload.model_dump(exclude_unset=True)
+    actor_id = data.pop("actor_id", None)
+    if actor_id is not None:
+        require_project_member(db, issue.project_id, actor_id)
 
     if "story_id" in data and data["story_id"] is not None:
         story = db.get(Story, data["story_id"])
@@ -126,6 +134,7 @@ def update_issue(issue_id: int, payload: IssueUpdate, db: Session = Depends(get_
     if data.get("sprint_id") is not None:
         require_assignable_sprint(db, issue.project_id, data["sprint_id"])
 
+    record_issue_changes(db, issue, data, actor_id)
     for key, value in data.items():
         setattr(issue, key, value)
 

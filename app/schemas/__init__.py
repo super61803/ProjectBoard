@@ -83,6 +83,7 @@ class IssueCreate(BaseModel):
     priority: IssuePriority = IssuePriority.medium
     assignee_id: int | None = None
     sprint_id: int | None = None
+    actor_id: int | None = None
 
 
 class IssueUpdate(BaseModel):
@@ -93,6 +94,7 @@ class IssueUpdate(BaseModel):
     priority: IssuePriority | None = None
     assignee_id: int | None = None
     sprint_id: int | None = None
+    actor_id: int | None = None
 
 
 class IssueRead(BaseModel):
