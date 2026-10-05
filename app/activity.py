@@ -2,7 +2,17 @@ from sqlalchemy.orm import Session
 
 from app.models import Activity, ActivityAction, Issue
 
-TRACKED_FIELDS = ("title", "description", "status", "priority", "assignee_id", "sprint_id", "story_id")
+TRACKED_FIELDS = (
+    "title",
+    "description",
+    "status",
+    "priority",
+    "assignee_id",
+    "sprint_id",
+    "story_id",
+    "estimate",
+    "due_date",
+)
 
 
 def _text(value: object) -> str | None:
