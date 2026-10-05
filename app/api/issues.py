@@ -84,6 +84,8 @@ def create_issue(payload: IssueCreate, db: Session = Depends(get_db)) -> Issue:
         priority=payload.priority.value,
         assignee_id=payload.assignee_id,
         sprint_id=payload.sprint_id,
+        estimate=payload.estimate,
+        due_date=payload.due_date,
     )
     db.add(issue)
     db.flush()

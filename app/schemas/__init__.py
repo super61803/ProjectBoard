@@ -83,6 +83,8 @@ class IssueCreate(BaseModel):
     priority: IssuePriority = IssuePriority.medium
     assignee_id: int | None = None
     sprint_id: int | None = None
+    estimate: int | None = Field(default=None, ge=0)
+    due_date: date | None = None
     actor_id: int | None = None
 
 
@@ -94,6 +96,8 @@ class IssueUpdate(BaseModel):
     priority: IssuePriority | None = None
     assignee_id: int | None = None
     sprint_id: int | None = None
+    estimate: int | None = Field(default=None, ge=0)
+    due_date: date | None = None
     actor_id: int | None = None
 
 
@@ -111,6 +115,8 @@ class IssueRead(BaseModel):
     priority: str
     assignee_id: int | None
     sprint_id: int | None
+    estimate: int | None
+    due_date: date | None
     labels: list[LabelRead] = []
     created_at: datetime
     updated_at: datetime
