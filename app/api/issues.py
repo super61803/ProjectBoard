@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
@@ -22,6 +24,8 @@ def list_issues(
     label_id: int | None = Query(default=None),
     sprint_id: int | None = Query(default=None),
     blocked: bool | None = Query(default=None),
+    overdue: bool | None = Query(default=None),
+    due_before: date | None = Query(default=None),
     q: str | None = Query(default=None, min_length=1),
     db: Session = Depends(get_db),
 ) -> list[Issue]:
@@ -48,6 +52,22 @@ def list_issues(
             query = query.filter(Issue.inbound_links.any(open_block))
         else:
             query = query.filter(~Issue.inbound_links.any(open_block))
+    if due_before is not None:
+        query = query.filter(Issue.due_date.is_not(None), Issue.due_date <= due_before)
+    if overdue is True:
+        query = query.filter(
+            Issue.due_date.is_not(None),
+            Issue.due_date < date.today(),
+            Issue.status != IssueStatus.closed.value,
+        )
+    elif overdue is False:
+        query = query.filter(
+            or_(
+                Issue.due_date.is_(None),
+                Issue.due_date >= date.today(),
+                Issue.status == IssueStatus.closed.value,
+            )
+        )
     if q:
         query = query.filter(Issue.title.ilike(f"%{q}%"))
     return query.order_by(Issue.id.desc()).all()

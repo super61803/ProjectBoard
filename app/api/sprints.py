@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Issue, IssueStatus, Project, Sprint, SprintStatus
-from app.schemas import SprintBoard, SprintCreate, SprintRead, SprintUpdate
+from app.schemas import SprintBoard, SprintCreate, SprintProgress, SprintRead, SprintUpdate
 
 router = APIRouter(prefix="/sprints", tags=["sprints"])
 
@@ -71,6 +71,26 @@ def sprint_board(sprint_id: int, db: Session = Depends(get_db)) -> dict[str, obj
     for issue in issues:
         columns.setdefault(issue.status, []).append(issue)
     return {"sprint": sprint, "columns": columns}
+
+
+@router.get("/{sprint_id}/progress", response_model=SprintProgress)
+def sprint_progress(sprint_id: int, db: Session = Depends(get_db)) -> dict[str, object]:
+    sprint = db.get(Sprint, sprint_id)
+    if not sprint:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sprint not found")
+
+    issues = db.query(Issue).filter(Issue.sprint_id == sprint_id).all()
+    closed = [issue for issue in issues if issue.status == IssueStatus.closed.value]
+    estimate_total = sum(issue.estimate or 0 for issue in issues)
+    estimate_done = sum(issue.estimate or 0 for issue in closed)
+    return {
+        "sprint": sprint,
+        "issue_count": len(issues),
+        "closed_count": len(closed),
+        "estimate_total": estimate_total,
+        "estimate_done": estimate_done,
+        "estimate_remaining": estimate_total - estimate_done,
+    }
 
 
 @router.patch("/{sprint_id}", response_model=SprintRead)

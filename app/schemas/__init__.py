@@ -205,6 +205,15 @@ class SprintBoard(BaseModel):
     columns: dict[str, list[IssueRead]]
 
 
+class SprintProgress(BaseModel):
+    sprint: SprintRead
+    issue_count: int
+    closed_count: int
+    estimate_total: int
+    estimate_done: int
+    estimate_remaining: int
+
+
 class CommentCreate(BaseModel):
     author_id: int
     body: str = Field(min_length=1)
