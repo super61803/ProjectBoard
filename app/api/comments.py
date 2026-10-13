@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.activity import record_activity
@@ -50,6 +50,15 @@ def update_comment(comment_id: int, payload: CommentUpdate, db: Session = Depend
     if comment.author_id != payload.author_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the author can edit a comment")
 
+    if comment.body != payload.body:
+        record_activity(
+            db,
+            comment.issue_id,
+            ActivityAction.comment_edited,
+            actor_id=payload.author_id,
+            old_value=comment.body,
+            new_value=payload.body,
+        )
     comment.body = payload.body
     db.commit()
     db.refresh(comment)
@@ -57,9 +66,20 @@ def update_comment(comment_id: int, payload: CommentUpdate, db: Session = Depend
 
 
 @router.delete("/comments/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_comment(comment_id: int, db: Session = Depends(get_db)) -> None:
+def delete_comment(
+    comment_id: int,
+    actor_id: int | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> None:
     comment = db.get(Comment, comment_id)
     if not comment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Comment not found")
+    record_activity(
+        db,
+        comment.issue_id,
+        ActivityAction.comment_deleted,
+        actor_id=actor_id,
+        old_value=comment.body,
+    )
     db.delete(comment)
     db.commit()

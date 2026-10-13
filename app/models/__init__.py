@@ -49,6 +49,8 @@ class ActivityAction(str, Enum):
     created = "created"
     updated = "updated"
     commented = "commented"
+    comment_edited = "comment_edited"
+    comment_deleted = "comment_deleted"
     linked = "linked"
     unlinked = "unlinked"
 
