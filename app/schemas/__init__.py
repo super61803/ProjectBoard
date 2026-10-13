@@ -27,6 +27,16 @@ class ProjectRead(BaseModel):
     updated_at: datetime
 
 
+class ProjectSummary(BaseModel):
+    project: ProjectRead
+    issue_count: int
+    by_status: dict[str, int]
+    by_priority: dict[str, int]
+    overdue_count: int
+    unassigned_count: int
+    blocked_count: int
+
+
 class StoryCreate(BaseModel):
     project_id: int
     title: str = Field(min_length=1, max_length=200)

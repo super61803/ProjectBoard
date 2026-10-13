@@ -1,9 +1,12 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Project
-from app.schemas import ProjectCreate, ProjectRead, ProjectUpdate
+from app.models import Issue, IssueLink, IssueLinkType, IssuePriority, IssueStatus, Project
+from app.schemas import ProjectCreate, ProjectRead, ProjectSummary, ProjectUpdate
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -36,6 +39,39 @@ def get_project(project_id: int, db: Session = Depends(get_db)) -> Project:
     if not project:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
     return project
+
+
+@router.get("/{project_id}/summary", response_model=ProjectSummary)
+def project_summary(project_id: int, db: Session = Depends(get_db)) -> dict[str, object]:
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    issues = db.query(Issue).filter(Issue.project_id == project_id)
+
+    by_status = {item.value: 0 for item in IssueStatus}
+    for value, count in issues.with_entities(Issue.status, func.count()).group_by(Issue.status):
+        by_status[value] = count
+
+    by_priority = {item.value: 0 for item in IssuePriority}
+    for value, count in issues.with_entities(Issue.priority, func.count()).group_by(Issue.priority):
+        by_priority[value] = count
+
+    still_open = Issue.status != IssueStatus.closed.value
+    open_block = (IssueLink.link_type == IssueLinkType.blocks.value) & (
+        IssueLink.source.has(Issue.status != IssueStatus.closed.value)
+    )
+    return {
+        "project": project,
+        "issue_count": sum(by_status.values()),
+        "by_status": by_status,
+        "by_priority": by_priority,
+        "overdue_count": issues.filter(
+            still_open, Issue.due_date.is_not(None), Issue.due_date < date.today()
+        ).count(),
+        "unassigned_count": issues.filter(still_open, Issue.assignee_id.is_(None)).count(),
+        "blocked_count": issues.filter(still_open, Issue.inbound_links.any(open_block)).count(),
+    }
 
 
 @router.patch("/{project_id}", response_model=ProjectRead)
