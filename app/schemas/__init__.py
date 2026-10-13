@@ -219,6 +219,11 @@ class CommentCreate(BaseModel):
     body: str = Field(min_length=1)
 
 
+class CommentUpdate(BaseModel):
+    author_id: int
+    body: str = Field(min_length=1)
+
+
 class CommentRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

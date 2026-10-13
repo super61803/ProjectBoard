@@ -6,7 +6,7 @@ from app.api.members import require_project_member
 from app.api.watchers import ensure_watcher
 from app.database import get_db
 from app.models import ActivityAction, Comment, Issue
-from app.schemas import CommentCreate, CommentRead
+from app.schemas import CommentCreate, CommentRead, CommentUpdate
 
 router = APIRouter(tags=["comments"])
 
@@ -37,6 +37,20 @@ def create_comment(issue_id: int, payload: CommentCreate, db: Session = Depends(
         new_value=payload.body,
     )
     ensure_watcher(db, issue_id, payload.author_id)
+    db.commit()
+    db.refresh(comment)
+    return comment
+
+
+@router.patch("/comments/{comment_id}", response_model=CommentRead)
+def update_comment(comment_id: int, payload: CommentUpdate, db: Session = Depends(get_db)) -> Comment:
+    comment = db.get(Comment, comment_id)
+    if not comment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Comment not found")
+    if comment.author_id != payload.author_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the author can edit a comment")
+
+    comment.body = payload.body
     db.commit()
     db.refresh(comment)
     return comment
