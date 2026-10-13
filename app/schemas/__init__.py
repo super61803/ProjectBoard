@@ -230,6 +230,19 @@ class CommentRead(BaseModel):
     updated_at: datetime
 
 
+class WatcherCreate(BaseModel):
+    user_id: int
+
+
+class WatcherRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    issue_id: int
+    user_id: int
+    created_at: datetime
+
+
 class ActivityRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

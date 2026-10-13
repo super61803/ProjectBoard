@@ -137,6 +137,7 @@ class Issue(Base):
         passive_deletes=True,
     )
     activities: Mapped[list["Activity"]] = relationship(back_populates="issue", cascade="all, delete-orphan")
+    watchers: Mapped[list["IssueWatcher"]] = relationship(back_populates="issue", cascade="all, delete-orphan")
 
 
 class User(Base):
@@ -246,3 +247,16 @@ class Activity(Base):
 
     issue: Mapped[Issue] = relationship(back_populates="activities")
     actor: Mapped["User | None"] = relationship()
+
+
+class IssueWatcher(Base):
+    __tablename__ = "issue_watchers"
+    __table_args__ = (UniqueConstraint("issue_id", "user_id", name="uq_issue_watcher"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    issue_id: Mapped[int] = mapped_column(ForeignKey("issues.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    issue: Mapped[Issue] = relationship(back_populates="watchers")
+    user: Mapped[User] = relationship()
