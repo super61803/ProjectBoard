@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.activity import record_activity
 from app.api.members import require_project_member
+from app.api.watchers import ensure_watcher
 from app.database import get_db
 from app.models import ActivityAction, Comment, Issue
 from app.schemas import CommentCreate, CommentRead
@@ -35,6 +36,7 @@ def create_comment(issue_id: int, payload: CommentCreate, db: Session = Depends(
         actor_id=payload.author_id,
         new_value=payload.body,
     )
+    ensure_watcher(db, issue_id, payload.author_id)
     db.commit()
     db.refresh(comment)
     return comment

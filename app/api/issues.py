@@ -7,8 +7,20 @@ from sqlalchemy.orm import Session
 from app.activity import record_activity, record_issue_changes
 from app.api.members import require_project_member
 from app.api.sprints import require_assignable_sprint
+from app.api.watchers import ensure_watcher
 from app.database import get_db
-from app.models import ActivityAction, Issue, IssueLink, IssueLinkType, IssuePriority, IssueStatus, Label, Project, Story
+from app.models import (
+    ActivityAction,
+    Issue,
+    IssueLink,
+    IssueLinkType,
+    IssuePriority,
+    IssueStatus,
+    IssueWatcher,
+    Label,
+    Project,
+    Story,
+)
 from app.schemas import IssueCreate, IssueDetail, IssueLinkRead, IssueRead, IssueUpdate
 
 router = APIRouter(prefix="/issues", tags=["issues"])
@@ -26,6 +38,7 @@ def list_issues(
     blocked: bool | None = Query(default=None),
     overdue: bool | None = Query(default=None),
     due_before: date | None = Query(default=None),
+    watcher_id: int | None = Query(default=None),
     q: str | None = Query(default=None, min_length=1),
     db: Session = Depends(get_db),
 ) -> list[Issue]:
@@ -68,6 +81,8 @@ def list_issues(
                 Issue.status == IssueStatus.closed.value,
             )
         )
+    if watcher_id is not None:
+        query = query.filter(Issue.watchers.any(IssueWatcher.user_id == watcher_id))
     if q:
         query = query.filter(Issue.title.ilike(f"%{q}%"))
     return query.order_by(Issue.id.desc()).all()
@@ -110,6 +125,8 @@ def create_issue(payload: IssueCreate, db: Session = Depends(get_db)) -> Issue:
     db.add(issue)
     db.flush()
     record_activity(db, issue.id, ActivityAction.created, actor_id=payload.actor_id, new_value=issue.key)
+    for user_id in {payload.actor_id, payload.assignee_id} - {None}:
+        ensure_watcher(db, issue.id, user_id)
     db.commit()
     db.refresh(issue)
     return issue
@@ -159,6 +176,8 @@ def update_issue(issue_id: int, payload: IssueUpdate, db: Session = Depends(get_
     record_issue_changes(db, issue, data, actor_id)
     for key, value in data.items():
         setattr(issue, key, value)
+    if data.get("assignee_id") is not None:
+        ensure_watcher(db, issue.id, data["assignee_id"])
 
     db.commit()
     db.refresh(issue)
