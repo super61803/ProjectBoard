@@ -1,7 +1,8 @@
 from datetime import date
+from enum import Enum
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, or_
+from sqlalchemy import case, func, or_
 from sqlalchemy.orm import Session
 
 from app.activity import record_activity, record_issue_changes
@@ -26,6 +27,38 @@ from app.schemas import IssueCreate, IssueDetail, IssueLinkRead, IssueRead, Issu
 router = APIRouter(prefix="/issues", tags=["issues"])
 
 
+class IssueSort(str, Enum):
+    newest = "newest"
+    oldest = "oldest"
+    updated = "updated"
+    due_date = "due_date"
+    priority = "priority"
+
+
+PRIORITY_RANK = case(
+    {
+        IssuePriority.critical.value: 0,
+        IssuePriority.high.value: 1,
+        IssuePriority.medium.value: 2,
+        IssuePriority.low.value: 3,
+    },
+    value=Issue.priority,
+    else_=4,
+)
+
+
+def _sort_order(sort: IssueSort) -> tuple:
+    if sort == IssueSort.oldest:
+        return (Issue.id.asc(),)
+    if sort == IssueSort.updated:
+        return (Issue.updated_at.desc(), Issue.id.desc())
+    if sort == IssueSort.due_date:
+        return (Issue.due_date.asc().nulls_last(), Issue.id.desc())
+    if sort == IssueSort.priority:
+        return (PRIORITY_RANK, Issue.id.desc())
+    return (Issue.id.desc(),)
+
+
 @router.get("", response_model=list[IssueRead])
 def list_issues(
     project_id: int | None = Query(default=None),
@@ -40,6 +73,7 @@ def list_issues(
     due_before: date | None = Query(default=None),
     watcher_id: int | None = Query(default=None),
     q: str | None = Query(default=None, min_length=1),
+    sort: IssueSort = Query(default=IssueSort.newest),
     db: Session = Depends(get_db),
 ) -> list[Issue]:
     query = db.query(Issue)
@@ -85,7 +119,7 @@ def list_issues(
         query = query.filter(Issue.watchers.any(IssueWatcher.user_id == watcher_id))
     if q:
         query = query.filter(Issue.title.ilike(f"%{q}%"))
-    return query.order_by(Issue.id.desc()).all()
+    return query.order_by(*_sort_order(sort)).all()
 
 
 @router.post("", response_model=IssueRead, status_code=status.HTTP_201_CREATED)
