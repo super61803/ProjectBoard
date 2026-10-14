@@ -65,6 +65,15 @@ class StoryRead(BaseModel):
     updated_at: datetime
 
 
+class StoryProgress(BaseModel):
+    story: StoryRead
+    issue_count: int
+    closed_count: int
+    estimate_total: int
+    estimate_done: int
+    percent_complete: int
+
+
 class LabelCreate(BaseModel):
     name: str = Field(min_length=1, max_length=40)
     color: str = Field(default="#6B7280", min_length=4, max_length=7)
