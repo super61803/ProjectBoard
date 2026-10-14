@@ -3,8 +3,9 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.activity import record_activity
 from app.database import get_db
-from app.models import Issue, IssueStatus, Project, Sprint, SprintStatus
+from app.models import ActivityAction, Issue, IssueStatus, Project, Sprint, SprintStatus
 from app.schemas import SprintBoard, SprintCreate, SprintProgress, SprintRead, SprintUpdate
 
 router = APIRouter(prefix="/sprints", tags=["sprints"])
@@ -139,12 +140,38 @@ def start_sprint(sprint_id: int, db: Session = Depends(get_db)) -> Sprint:
 
 
 @router.post("/{sprint_id}/complete", response_model=SprintRead)
-def complete_sprint(sprint_id: int, db: Session = Depends(get_db)) -> Sprint:
+def complete_sprint(
+    sprint_id: int,
+    carry_over_to: int | None = Query(default=None),
+    actor_id: int | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> Sprint:
     sprint = db.get(Sprint, sprint_id)
     if not sprint:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sprint not found")
     if sprint.status != SprintStatus.active.value:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only an active sprint can be completed")
+    if carry_over_to is not None:
+        if carry_over_to == sprint_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot carry issues over to the same sprint")
+        require_assignable_sprint(db, sprint.project_id, carry_over_to)
+
+    unfinished = (
+        db.query(Issue)
+        .filter(Issue.sprint_id == sprint_id, Issue.status != IssueStatus.closed.value)
+        .all()
+    )
+    for issue in unfinished:
+        record_activity(
+            db,
+            issue.id,
+            ActivityAction.updated,
+            actor_id=actor_id,
+            field="sprint_id",
+            old_value=str(sprint_id),
+            new_value=str(carry_over_to) if carry_over_to is not None else None,
+        )
+        issue.sprint_id = carry_over_to
 
     sprint.status = SprintStatus.completed.value
     if sprint.end_date is None:
