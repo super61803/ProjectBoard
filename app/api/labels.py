@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Issue, Label, Project
-from app.schemas import IssueLabelAttach, IssueRead, LabelCreate, LabelRead
+from app.schemas import IssueLabelAttach, IssueRead, LabelCreate, LabelRead, LabelUpdate
 
 router = APIRouter(tags=["labels"])
 
@@ -28,6 +28,31 @@ def create_label(project_id: int, payload: LabelCreate, db: Session = Depends(ge
 
     label = Label(project_id=project_id, name=payload.name, color=payload.color)
     db.add(label)
+    db.commit()
+    db.refresh(label)
+    return label
+
+
+@router.patch("/labels/{label_id}", response_model=LabelRead)
+def update_label(label_id: int, payload: LabelUpdate, db: Session = Depends(get_db)) -> Label:
+    label = db.get(Label, label_id)
+    if not label:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Label not found")
+
+    data = payload.model_dump(exclude_unset=True)
+    if data.get("name") is not None:
+        clash = (
+            db.query(Label)
+            .filter(Label.project_id == label.project_id, Label.name == data["name"], Label.id != label_id)
+            .first()
+        )
+        if clash:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Label name already exists")
+
+    for key, value in data.items():
+        if value is not None:
+            setattr(label, key, value)
+
     db.commit()
     db.refresh(label)
     return label

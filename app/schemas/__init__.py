@@ -79,6 +79,11 @@ class LabelCreate(BaseModel):
     color: str = Field(default="#6B7280", min_length=4, max_length=7)
 
 
+class LabelUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=40)
+    color: str | None = Field(default=None, min_length=4, max_length=7)
+
+
 class LabelRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
