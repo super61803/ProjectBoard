@@ -125,6 +125,15 @@ class IssueUpdate(BaseModel):
     actor_id: int | None = None
 
 
+class IssueBulkUpdate(BaseModel):
+    issue_ids: list[int] = Field(min_length=1, max_length=100)
+    status: IssueStatus | None = None
+    priority: IssuePriority | None = None
+    assignee_id: int | None = None
+    sprint_id: int | None = None
+    actor_id: int | None = None
+
+
 class IssueRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

@@ -22,7 +22,7 @@ from app.models import (
     Project,
     Story,
 )
-from app.schemas import IssueCreate, IssueDetail, IssueLinkRead, IssueRead, IssueUpdate
+from app.schemas import IssueBulkUpdate, IssueCreate, IssueDetail, IssueLinkRead, IssueRead, IssueUpdate
 
 router = APIRouter(prefix="/issues", tags=["issues"])
 
@@ -164,6 +164,48 @@ def create_issue(payload: IssueCreate, db: Session = Depends(get_db)) -> Issue:
     db.commit()
     db.refresh(issue)
     return issue
+
+
+@router.post("/bulk-update", response_model=list[IssueRead])
+def bulk_update_issues(payload: IssueBulkUpdate, db: Session = Depends(get_db)) -> list[Issue]:
+    issue_ids = list(dict.fromkeys(payload.issue_ids))
+    issues = db.query(Issue).filter(Issue.id.in_(issue_ids)).order_by(Issue.id).all()
+    if len(issues) != len(issue_ids):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="One or more issues were not found")
+    project_ids = {issue.project_id for issue in issues}
+    if len(project_ids) > 1:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Issues must belong to one project")
+    project_id = project_ids.pop()
+
+    data = payload.model_dump(exclude_unset=True, exclude={"issue_ids", "actor_id"})
+    for required in ("status", "priority"):
+        if required in data and data[required] is None:
+            del data[required]
+    if not data:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update")
+    if payload.actor_id is not None:
+        require_project_member(db, project_id, payload.actor_id)
+    if data.get("status") is not None:
+        data["status"] = data["status"].value
+    if data.get("priority") is not None:
+        data["priority"] = data["priority"].value
+    if data.get("assignee_id") is not None:
+        require_project_member(db, project_id, data["assignee_id"])
+    if data.get("sprint_id") is not None:
+        require_assignable_sprint(db, project_id, data["sprint_id"])
+
+    for issue in issues:
+        record_issue_changes(db, issue, data, payload.actor_id)
+        for key, value in data.items():
+            setattr(issue, key, value)
+    if data.get("assignee_id") is not None:
+        for issue in issues:
+            ensure_watcher(db, issue.id, data["assignee_id"])
+
+    db.commit()
+    for issue in issues:
+        db.refresh(issue)
+    return issues
 
 
 @router.get("/{issue_id}", response_model=IssueDetail)
