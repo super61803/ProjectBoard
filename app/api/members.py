@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Project, ProjectMember, User
-from app.schemas import MemberCreate, MemberRead, UserCreate, UserRead
+from app.models import Issue, IssueStatus, IssueWatcher, Project, ProjectMember, User
+from app.schemas import MemberCreate, MemberRead, UserCreate, UserRead, UserWork
 
 router = APIRouter(tags=["members"])
 
@@ -35,6 +36,26 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db)) -> User:
     db.commit()
     db.refresh(user)
     return user
+
+
+@router.get("/users/{user_id}/work", response_model=UserWork)
+def user_work(user_id: int, db: Session = Depends(get_db)) -> dict[str, object]:
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    open_issues = db.query(Issue).filter(Issue.status != IssueStatus.closed.value)
+    by_due_date = (Issue.due_date.asc().nulls_last(), Issue.id.desc())
+    assigned = open_issues.filter(Issue.assignee_id == user_id).order_by(*by_due_date).all()
+    watching = (
+        open_issues.filter(
+            Issue.watchers.any(IssueWatcher.user_id == user_id),
+            or_(Issue.assignee_id.is_(None), Issue.assignee_id != user_id),
+        )
+        .order_by(*by_due_date)
+        .all()
+    )
+    return {"user": user, "assigned": assigned, "watching": watching}
 
 
 @router.get("/projects/{project_id}/members", response_model=list[MemberRead])

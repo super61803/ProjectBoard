@@ -189,6 +189,12 @@ class UserRead(BaseModel):
     created_at: datetime
 
 
+class UserWork(BaseModel):
+    user: UserRead
+    assigned: list[IssueRead]
+    watching: list[IssueRead]
+
+
 class MemberCreate(BaseModel):
     user_id: int
     role: MemberRole = MemberRole.member
