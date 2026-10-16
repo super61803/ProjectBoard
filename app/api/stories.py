@@ -79,6 +79,9 @@ def update_story(story_id: int, payload: StoryUpdate, db: Session = Depends(get_
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Story not found")
 
     data = payload.model_dump(exclude_unset=True)
+    for required in ("title", "status"):
+        if required in data and data[required] is None:
+            del data[required]
     if "status" in data and data["status"] is not None:
         data["status"] = data["status"].value
 

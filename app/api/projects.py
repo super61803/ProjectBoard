@@ -81,6 +81,8 @@ def update_project(project_id: int, payload: ProjectUpdate, db: Session = Depend
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
 
     data = payload.model_dump(exclude_unset=True)
+    if "name" in data and data["name"] is None:
+        del data["name"]
     if "name" in data:
         clash = db.query(Project).filter(Project.name == data["name"], Project.id != project_id).first()
         if clash:

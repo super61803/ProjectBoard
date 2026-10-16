@@ -232,6 +232,9 @@ def update_issue(issue_id: int, payload: IssueUpdate, db: Session = Depends(get_
 
     data = payload.model_dump(exclude_unset=True)
     actor_id = data.pop("actor_id", None)
+    for required in ("title", "status", "priority"):
+        if required in data and data[required] is None:
+            del data[required]
     if actor_id is not None:
         require_project_member(db, issue.project_id, actor_id)
 

@@ -103,6 +103,8 @@ def update_sprint(sprint_id: int, payload: SprintUpdate, db: Session = Depends(g
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Completed sprints cannot be edited")
 
     data = payload.model_dump(exclude_unset=True)
+    if "name" in data and data["name"] is None:
+        del data["name"]
     start_date = data["start_date"] if "start_date" in data else sprint.start_date
     end_date = data["end_date"] if "end_date" in data else sprint.end_date
     _check_dates(start_date, end_date)
