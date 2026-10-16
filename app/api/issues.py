@@ -1,7 +1,7 @@
 from datetime import date
 from enum import Enum
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import case, func, or_
 from sqlalchemy.orm import Session
 
@@ -61,6 +61,7 @@ def _sort_order(sort: IssueSort) -> tuple:
 
 @router.get("", response_model=list[IssueRead])
 def list_issues(
+    response: Response,
     project_id: int | None = Query(default=None),
     story_id: int | None = Query(default=None),
     status_filter: IssueStatus | None = Query(default=None, alias="status"),
@@ -74,6 +75,8 @@ def list_issues(
     watcher_id: int | None = Query(default=None),
     q: str | None = Query(default=None, min_length=1),
     sort: IssueSort = Query(default=IssueSort.newest),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ) -> list[Issue]:
     query = db.query(Issue)
@@ -119,7 +122,8 @@ def list_issues(
         query = query.filter(Issue.watchers.any(IssueWatcher.user_id == watcher_id))
     if q:
         query = query.filter(Issue.title.ilike(f"%{q}%"))
-    return query.order_by(*_sort_order(sort)).all()
+    response.headers["X-Total-Count"] = str(query.count())
+    return query.order_by(*_sort_order(sort)).offset(offset).limit(limit).all()
 
 
 @router.post("", response_model=IssueRead, status_code=status.HTTP_201_CREATED)
