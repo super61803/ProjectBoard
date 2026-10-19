@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Issue, IssueStatus, Project, Story
+from app.models import Issue, IssueStatus, Project, Story, StoryStatus
 from app.schemas import StoryCreate, StoryProgress, StoryRead, StoryUpdate
 
 router = APIRouter(prefix="/stories", tags=["stories"])
@@ -11,11 +11,14 @@ router = APIRouter(prefix="/stories", tags=["stories"])
 @router.get("", response_model=list[StoryRead])
 def list_stories(
     project_id: int | None = Query(default=None),
+    status_filter: StoryStatus | None = Query(default=None, alias="status"),
     db: Session = Depends(get_db),
 ) -> list[Story]:
     query = db.query(Story)
     if project_id is not None:
         query = query.filter(Story.project_id == project_id)
+    if status_filter is not None:
+        query = query.filter(Story.status == status_filter.value)
     return query.order_by(Story.id.desc()).all()
 
 

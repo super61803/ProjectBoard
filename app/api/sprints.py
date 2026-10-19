@@ -26,10 +26,16 @@ def _check_dates(start_date: date | None, end_date: date | None) -> None:
 
 
 @router.get("", response_model=list[SprintRead])
-def list_sprints(project_id: int | None = Query(default=None), db: Session = Depends(get_db)) -> list[Sprint]:
+def list_sprints(
+    project_id: int | None = Query(default=None),
+    status_filter: SprintStatus | None = Query(default=None, alias="status"),
+    db: Session = Depends(get_db),
+) -> list[Sprint]:
     query = db.query(Sprint)
     if project_id is not None:
         query = query.filter(Sprint.project_id == project_id)
+    if status_filter is not None:
+        query = query.filter(Sprint.status == status_filter.value)
     return query.order_by(Sprint.id.desc()).all()
 
 
