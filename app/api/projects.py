@@ -5,8 +5,8 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Issue, IssueLink, IssueLinkType, IssuePriority, IssueStatus, Project
-from app.schemas import ProjectCreate, ProjectRead, ProjectSummary, ProjectUpdate
+from app.models import Issue, IssueLink, IssueLinkType, IssuePriority, IssueStatus, Project, Sprint, SprintStatus
+from app.schemas import ProjectCreate, ProjectRead, ProjectSummary, ProjectUpdate, SprintRead
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -72,6 +72,22 @@ def project_summary(project_id: int, db: Session = Depends(get_db)) -> dict[str,
         "unassigned_count": issues.filter(still_open, Issue.assignee_id.is_(None)).count(),
         "blocked_count": issues.filter(still_open, Issue.inbound_links.any(open_block)).count(),
     }
+
+
+@router.get("/{project_id}/active-sprint", response_model=SprintRead)
+def active_sprint(project_id: int, db: Session = Depends(get_db)) -> Sprint:
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    sprint = (
+        db.query(Sprint)
+        .filter(Sprint.project_id == project_id, Sprint.status == SprintStatus.active.value)
+        .first()
+    )
+    if not sprint:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project has no active sprint")
+    return sprint
 
 
 @router.patch("/{project_id}", response_model=ProjectRead)
