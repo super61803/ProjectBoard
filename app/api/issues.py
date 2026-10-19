@@ -73,6 +73,8 @@ def list_issues(
     overdue: bool | None = Query(default=None),
     due_before: date | None = Query(default=None),
     watcher_id: int | None = Query(default=None),
+    unassigned: bool | None = Query(default=None),
+    backlog: bool | None = Query(default=None),
     q: str | None = Query(default=None, min_length=1),
     sort: IssueSort = Query(default=IssueSort.newest),
     limit: int = Query(default=50, ge=1, le=200),
@@ -120,6 +122,10 @@ def list_issues(
         )
     if watcher_id is not None:
         query = query.filter(Issue.watchers.any(IssueWatcher.user_id == watcher_id))
+    if unassigned is not None:
+        query = query.filter(Issue.assignee_id.is_(None) if unassigned else Issue.assignee_id.is_not(None))
+    if backlog is not None:
+        query = query.filter(Issue.sprint_id.is_(None) if backlog else Issue.sprint_id.is_not(None))
     if q:
         query = query.filter(Issue.title.ilike(f"%{q}%"))
     response.headers["X-Total-Count"] = str(query.count())
