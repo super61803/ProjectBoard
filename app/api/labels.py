@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Issue, Label, Project
-from app.schemas import IssueLabelAttach, IssueRead, LabelCreate, LabelRead, LabelUpdate
+from app.models import Issue, IssueStatus, Label, Project
+from app.schemas import IssueLabelAttach, IssueRead, LabelCreate, LabelRead, LabelUpdate, LabelUsage
 
 router = APIRouter(tags=["labels"])
 
@@ -14,6 +14,20 @@ def list_labels(project_id: int, db: Session = Depends(get_db)) -> list[Label]:
     if not project:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
     return db.query(Label).filter(Label.project_id == project_id).order_by(Label.name).all()
+
+
+@router.get("/projects/{project_id}/labels/usage", response_model=list[LabelUsage])
+def label_usage(project_id: int, db: Session = Depends(get_db)) -> list[dict[str, object]]:
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    labels = db.query(Label).filter(Label.project_id == project_id).order_by(Label.name).all()
+    usage = []
+    for label in labels:
+        open_count = sum(1 for issue in label.issues if issue.status != IssueStatus.closed.value)
+        usage.append({"label": label, "issue_count": len(label.issues), "open_count": open_count})
+    return usage
 
 
 @router.post("/projects/{project_id}/labels", response_model=LabelRead, status_code=status.HTTP_201_CREATED)

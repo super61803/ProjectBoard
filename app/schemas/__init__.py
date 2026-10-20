@@ -94,6 +94,12 @@ class LabelRead(BaseModel):
     created_at: datetime
 
 
+class LabelUsage(BaseModel):
+    label: LabelRead
+    issue_count: int
+    open_count: int
+
+
 class IssueLabelAttach(BaseModel):
     label_id: int
 
