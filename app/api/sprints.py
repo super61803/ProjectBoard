@@ -1,12 +1,12 @@
-from datetime import date
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.activity import record_activity
 from app.database import get_db
-from app.models import ActivityAction, Issue, IssueStatus, Project, Sprint, SprintStatus
-from app.schemas import SprintBoard, SprintCreate, SprintProgress, SprintRead, SprintUpdate
+from app.models import Activity, ActivityAction, Issue, IssueStatus, Project, Sprint, SprintStatus
+from app.schemas import SprintBoard, SprintBurndown, SprintCreate, SprintProgress, SprintRead, SprintUpdate
 
 router = APIRouter(prefix="/sprints", tags=["sprints"])
 
@@ -98,6 +98,50 @@ def sprint_progress(sprint_id: int, db: Session = Depends(get_db)) -> dict[str, 
         "estimate_done": estimate_done,
         "estimate_remaining": estimate_total - estimate_done,
     }
+
+
+def _closed_on(db: Session, issue: Issue) -> date:
+    closed_at = (
+        db.query(Activity.created_at)
+        .filter(
+            Activity.issue_id == issue.id,
+            Activity.field == "status",
+            Activity.new_value == IssueStatus.closed.value,
+        )
+        .order_by(Activity.id.desc())
+        .first()
+    )
+    return (closed_at[0] if closed_at else issue.updated_at).date()
+
+
+@router.get("/{sprint_id}/burndown", response_model=SprintBurndown)
+def sprint_burndown(sprint_id: int, db: Session = Depends(get_db)) -> dict[str, object]:
+    sprint = db.get(Sprint, sprint_id)
+    if not sprint:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sprint not found")
+    if sprint.start_date is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Sprint has no start date")
+
+    last_day = sprint.end_date or date.today()
+    if sprint.status != SprintStatus.completed.value:
+        last_day = min(last_day, date.today())
+    last_day = max(last_day, sprint.start_date)
+
+    issues = db.query(Issue).filter(Issue.sprint_id == sprint_id).all()
+    estimate_total = sum(issue.estimate or 0 for issue in issues)
+    closed = [
+        (_closed_on(db, issue), issue.estimate or 0)
+        for issue in issues
+        if issue.status == IssueStatus.closed.value
+    ]
+
+    points = []
+    day = sprint.start_date
+    while day <= last_day:
+        done = sum(estimate for closed_day, estimate in closed if closed_day <= day)
+        points.append({"day": day, "remaining": estimate_total - done})
+        day += timedelta(days=1)
+    return {"sprint": sprint, "estimate_total": estimate_total, "points": points}
 
 
 @router.patch("/{sprint_id}", response_model=SprintRead)

@@ -259,6 +259,17 @@ class SprintProgress(BaseModel):
     estimate_remaining: int
 
 
+class BurndownPoint(BaseModel):
+    day: date
+    remaining: int
+
+
+class SprintBurndown(BaseModel):
+    sprint: SprintRead
+    estimate_total: int
+    points: list[BurndownPoint]
+
+
 class CommentCreate(BaseModel):
     author_id: int
     body: str = Field(min_length=1)
