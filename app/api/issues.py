@@ -127,7 +127,14 @@ def list_issues(
     if backlog is not None:
         query = query.filter(Issue.sprint_id.is_(None) if backlog else Issue.sprint_id.is_not(None))
     if q:
-        query = query.filter(Issue.title.ilike(f"%{q}%"))
+        pattern = f"%{q}%"
+        query = query.filter(
+            or_(
+                Issue.title.ilike(pattern),
+                Issue.description.ilike(pattern),
+                Issue.key.ilike(pattern),
+            )
+        )
     response.headers["X-Total-Count"] = str(query.count())
     return query.order_by(*_sort_order(sort)).offset(offset).limit(limit).all()
 
