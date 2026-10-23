@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.activity import record_activity
@@ -12,11 +12,19 @@ router = APIRouter(tags=["comments"])
 
 
 @router.get("/issues/{issue_id}/comments", response_model=list[CommentRead])
-def list_comments(issue_id: int, db: Session = Depends(get_db)) -> list[Comment]:
+def list_comments(
+    issue_id: int,
+    response: Response,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+) -> list[Comment]:
     issue = db.get(Issue, issue_id)
     if not issue:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
-    return db.query(Comment).filter(Comment.issue_id == issue_id).order_by(Comment.id).all()
+    query = db.query(Comment).filter(Comment.issue_id == issue_id)
+    response.headers["X-Total-Count"] = str(query.count())
+    return query.order_by(Comment.id).offset(offset).limit(limit).all()
 
 
 @router.post("/issues/{issue_id}/comments", response_model=CommentRead, status_code=status.HTTP_201_CREATED)
