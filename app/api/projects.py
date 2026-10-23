@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Issue, IssueLink, IssueLinkType, IssuePriority, IssueStatus, Project, Sprint, SprintStatus
-from app.schemas import ProjectCreate, ProjectRead, ProjectSummary, ProjectUpdate, SprintRead
+from app.schemas import AssigneeWorkload, ProjectCreate, ProjectRead, ProjectSummary, ProjectUpdate, SprintRead
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -72,6 +72,25 @@ def project_summary(project_id: int, db: Session = Depends(get_db)) -> dict[str,
         "unassigned_count": issues.filter(still_open, Issue.assignee_id.is_(None)).count(),
         "blocked_count": issues.filter(still_open, Issue.inbound_links.any(open_block)).count(),
     }
+
+
+@router.get("/{project_id}/workload", response_model=list[AssigneeWorkload])
+def project_workload(project_id: int, db: Session = Depends(get_db)) -> list[dict[str, object]]:
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    rows = (
+        db.query(Issue.assignee_id, func.count(), func.coalesce(func.sum(Issue.estimate), 0))
+        .filter(Issue.project_id == project_id, Issue.status != IssueStatus.closed.value)
+        .group_by(Issue.assignee_id)
+        .order_by(func.count().desc())
+        .all()
+    )
+    return [
+        {"assignee_id": assignee_id, "open_count": count, "estimate_total": estimate}
+        for assignee_id, count, estimate in rows
+    ]
 
 
 @router.get("/{project_id}/active-sprint", response_model=SprintRead)

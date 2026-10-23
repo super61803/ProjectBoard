@@ -37,6 +37,12 @@ class ProjectSummary(BaseModel):
     blocked_count: int
 
 
+class AssigneeWorkload(BaseModel):
+    assignee_id: int | None
+    open_count: int
+    estimate_total: int
+
+
 class StoryCreate(BaseModel):
     project_id: int
     title: str = Field(min_length=1, max_length=200)
