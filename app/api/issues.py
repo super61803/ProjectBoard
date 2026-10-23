@@ -225,6 +225,14 @@ def bulk_update_issues(payload: IssueBulkUpdate, db: Session = Depends(get_db)) 
     return issues
 
 
+@router.get("/by-key/{key}", response_model=IssueRead)
+def get_issue_by_key(key: str, db: Session = Depends(get_db)) -> Issue:
+    issue = db.query(Issue).filter(Issue.key == key.upper()).first()
+    if not issue:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
+    return issue
+
+
 @router.get("/{issue_id}", response_model=IssueDetail)
 def get_issue(issue_id: int, db: Session = Depends(get_db)) -> IssueDetail:
     issue = db.get(Issue, issue_id)
