@@ -12,6 +12,7 @@ router = APIRouter(prefix="/stories", tags=["stories"])
 def list_stories(
     project_id: int | None = Query(default=None),
     status_filter: StoryStatus | None = Query(default=None, alias="status"),
+    q: str | None = Query(default=None, min_length=1),
     db: Session = Depends(get_db),
 ) -> list[Story]:
     query = db.query(Story)
@@ -19,6 +20,8 @@ def list_stories(
         query = query.filter(Story.project_id == project_id)
     if status_filter is not None:
         query = query.filter(Story.status == status_filter.value)
+    if q:
+        query = query.filter(Story.title.ilike(f"%{q}%"))
     return query.order_by(Story.id.desc()).all()
 
 
