@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
@@ -21,6 +23,8 @@ def project_activity(
     project_id: int,
     actor_id: int | None = Query(default=None),
     action: ActivityAction | None = Query(default=None),
+    since: datetime | None = Query(default=None),
+    until: datetime | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
@@ -34,4 +38,8 @@ def project_activity(
         query = query.filter(Activity.actor_id == actor_id)
     if action is not None:
         query = query.filter(Activity.action == action.value)
+    if since is not None:
+        query = query.filter(Activity.created_at >= since)
+    if until is not None:
+        query = query.filter(Activity.created_at < until)
     return query.order_by(Activity.id.desc()).offset(offset).limit(limit).all()
