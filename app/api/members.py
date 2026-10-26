@@ -3,8 +3,8 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Issue, IssueStatus, IssueWatcher, Project, ProjectMember, User
-from app.schemas import MemberCreate, MemberRead, UserCreate, UserRead, UserWork
+from app.models import Issue, IssueStatus, IssueWatcher, MemberRole, Project, ProjectMember, User
+from app.schemas import MemberCreate, MemberRead, MemberUpdate, UserCreate, UserRead, UserWork
 
 router = APIRouter(tags=["members"])
 
@@ -18,6 +18,18 @@ def require_project_member(db: Session, project_id: int, user_id: int) -> Projec
     if not membership:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User is not a project member")
     return membership
+
+
+def _ensure_other_owner(db: Session, membership: ProjectMember) -> None:
+    if membership.role != MemberRole.owner.value:
+        return
+    owners = (
+        db.query(ProjectMember)
+        .filter(ProjectMember.project_id == membership.project_id, ProjectMember.role == MemberRole.owner.value)
+        .count()
+    )
+    if owners <= 1:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Project must keep at least one owner")
 
 
 @router.get("/users", response_model=list[UserRead])
@@ -90,6 +102,23 @@ def add_member(project_id: int, payload: MemberCreate, db: Session = Depends(get
     return membership
 
 
+@router.patch("/projects/{project_id}/members/{user_id}", response_model=MemberRead)
+def update_member(project_id: int, user_id: int, payload: MemberUpdate, db: Session = Depends(get_db)) -> ProjectMember:
+    membership = (
+        db.query(ProjectMember)
+        .filter(ProjectMember.project_id == project_id, ProjectMember.user_id == user_id)
+        .first()
+    )
+    if not membership:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Membership not found")
+    if payload.role.value != membership.role:
+        _ensure_other_owner(db, membership)
+        membership.role = payload.role.value
+        db.commit()
+        db.refresh(membership)
+    return membership
+
+
 @router.delete("/projects/{project_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 def remove_member(project_id: int, user_id: int, db: Session = Depends(get_db)) -> None:
     membership = (
@@ -99,5 +128,6 @@ def remove_member(project_id: int, user_id: int, db: Session = Depends(get_db)) 
     )
     if not membership:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Membership not found")
+    _ensure_other_owner(db, membership)
     db.delete(membership)
     db.commit()

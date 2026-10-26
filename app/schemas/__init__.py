@@ -212,6 +212,10 @@ class MemberCreate(BaseModel):
     role: MemberRole = MemberRole.member
 
 
+class MemberUpdate(BaseModel):
+    role: MemberRole
+
+
 class MemberRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
