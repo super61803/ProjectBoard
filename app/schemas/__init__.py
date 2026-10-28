@@ -80,14 +80,17 @@ class StoryProgress(BaseModel):
     percent_complete: int
 
 
+HEX_COLOR = r"^#(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$"
+
+
 class LabelCreate(BaseModel):
     name: str = Field(min_length=1, max_length=40)
-    color: str = Field(default="#6B7280", min_length=4, max_length=7)
+    color: str = Field(default="#6B7280", pattern=HEX_COLOR)
 
 
 class LabelUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=40)
-    color: str | None = Field(default=None, min_length=4, max_length=7)
+    color: str | None = Field(default=None, pattern=HEX_COLOR)
 
 
 class LabelRead(BaseModel):
