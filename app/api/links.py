@@ -47,6 +47,8 @@ def create_link(issue_id: int, payload: IssueLinkCreate, db: Session = Depends(g
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Target issue not found")
     if source.id == target.id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="An issue cannot link to itself")
+    if source.project_id != target.project_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Linked issues must share a project")
 
     if _existing_link(db, source.id, target.id, payload.link_type.value):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="These issues are already linked")
