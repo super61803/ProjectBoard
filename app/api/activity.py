@@ -11,11 +11,18 @@ router = APIRouter(tags=["activity"])
 
 
 @router.get("/issues/{issue_id}/activity", response_model=list[ActivityRead])
-def list_activity(issue_id: int, db: Session = Depends(get_db)) -> list[Activity]:
+def list_activity(
+    issue_id: int,
+    field: str | None = Query(default=None, min_length=1),
+    db: Session = Depends(get_db),
+) -> list[Activity]:
     issue = db.get(Issue, issue_id)
     if not issue:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
-    return db.query(Activity).filter(Activity.issue_id == issue_id).order_by(Activity.id).all()
+    query = db.query(Activity).filter(Activity.issue_id == issue_id)
+    if field is not None:
+        query = query.filter(Activity.field == field)
+    return query.order_by(Activity.id).all()
 
 
 @router.get("/projects/{project_id}/activity", response_model=list[ActivityRead])
