@@ -82,6 +82,8 @@ def delete_comment(
     comment = db.get(Comment, comment_id)
     if not comment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Comment not found")
+    if actor_id is not None and actor_id != comment.author_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the author can delete a comment")
     record_activity(
         db,
         comment.issue_id,
