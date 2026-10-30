@@ -1,7 +1,7 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -12,8 +12,15 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 
 
 @router.get("", response_model=list[ProjectRead])
-def list_projects(db: Session = Depends(get_db)) -> list[Project]:
-    return db.query(Project).order_by(Project.id.desc()).all()
+def list_projects(
+    q: str | None = Query(default=None, min_length=1),
+    db: Session = Depends(get_db),
+) -> list[Project]:
+    query = db.query(Project)
+    if q:
+        pattern = f"%{q}%"
+        query = query.filter(or_(Project.name.ilike(pattern), Project.key.ilike(pattern)))
+    return query.order_by(Project.id.desc()).all()
 
 
 @router.post("", response_model=ProjectRead, status_code=status.HTTP_201_CREATED)
