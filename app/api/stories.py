@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -10,9 +10,12 @@ router = APIRouter(prefix="/stories", tags=["stories"])
 
 @router.get("", response_model=list[StoryRead])
 def list_stories(
+    response: Response,
     project_id: int | None = Query(default=None),
     status_filter: StoryStatus | None = Query(default=None, alias="status"),
     q: str | None = Query(default=None, min_length=1),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ) -> list[Story]:
     query = db.query(Story)
@@ -22,7 +25,8 @@ def list_stories(
         query = query.filter(Story.status == status_filter.value)
     if q:
         query = query.filter(Story.title.ilike(f"%{q}%"))
-    return query.order_by(Story.id.desc()).all()
+    response.headers["X-Total-Count"] = str(query.count())
+    return query.order_by(Story.id.desc()).offset(offset).limit(limit).all()
 
 
 @router.post("", response_model=StoryRead, status_code=status.HTTP_201_CREATED)
