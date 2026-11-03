@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -36,7 +37,11 @@ def create_label(project_id: int, payload: LabelCreate, db: Session = Depends(ge
     if not project:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
 
-    existing = db.query(Label).filter(Label.project_id == project_id, Label.name == payload.name).first()
+    existing = (
+        db.query(Label)
+        .filter(Label.project_id == project_id, func.lower(Label.name) == payload.name.lower())
+        .first()
+    )
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Label name already exists")
 
@@ -57,7 +62,11 @@ def update_label(label_id: int, payload: LabelUpdate, db: Session = Depends(get_
     if data.get("name") is not None:
         clash = (
             db.query(Label)
-            .filter(Label.project_id == label.project_id, Label.name == data["name"], Label.id != label_id)
+            .filter(
+                Label.project_id == label.project_id,
+                func.lower(Label.name) == data["name"].lower(),
+                Label.id != label_id,
+            )
             .first()
         )
         if clash:
