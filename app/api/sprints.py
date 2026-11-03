@@ -174,6 +174,8 @@ def start_sprint(sprint_id: int, db: Session = Depends(get_db)) -> Sprint:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sprint not found")
     if sprint.status != SprintStatus.planned.value:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only a planned sprint can be started")
+    if sprint.end_date is not None and sprint.end_date < date.today():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Sprint end date has already passed")
 
     active = (
         db.query(Sprint)
