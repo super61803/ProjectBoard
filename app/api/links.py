@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.activity import record_activity
 from app.database import get_db
-from app.models import ActivityAction, Issue, IssueLink
+from app.models import ActivityAction, Issue, IssueLink, IssueLinkType
 from app.schemas import IssueLinkCreate, IssueLinkRead
 
 router = APIRouter(tags=["links"])
@@ -25,16 +25,18 @@ def _existing_link(db: Session, source_id: int, target_id: int, link_type: str) 
 
 
 @router.get("/issues/{issue_id}/links", response_model=list[IssueLinkRead])
-def list_links(issue_id: int, db: Session = Depends(get_db)) -> list[IssueLink]:
+def list_links(
+    issue_id: int,
+    link_type: IssueLinkType | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> list[IssueLink]:
     issue = db.get(Issue, issue_id)
     if not issue:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
-    return (
-        db.query(IssueLink)
-        .filter(or_(IssueLink.source_id == issue_id, IssueLink.target_id == issue_id))
-        .order_by(IssueLink.id)
-        .all()
-    )
+    query = db.query(IssueLink).filter(or_(IssueLink.source_id == issue_id, IssueLink.target_id == issue_id))
+    if link_type is not None:
+        query = query.filter(IssueLink.link_type == link_type.value)
+    return query.order_by(IssueLink.id).all()
 
 
 @router.post("/issues/{issue_id}/links", response_model=IssueLinkRead, status_code=status.HTTP_201_CREATED)
