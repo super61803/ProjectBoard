@@ -52,6 +52,8 @@ def watch_issue(issue_id: int, payload: WatcherCreate, db: Session = Depends(get
 
 @router.delete("/issues/{issue_id}/watchers/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 def unwatch_issue(issue_id: int, user_id: int, db: Session = Depends(get_db)) -> None:
+    if not db.get(Issue, issue_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
     watcher = _find_watcher(db, issue_id, user_id)
     if not watcher:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Watcher not found")
