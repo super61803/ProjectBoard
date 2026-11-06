@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.activity import record_activity
@@ -27,8 +27,11 @@ def _check_dates(start_date: date | None, end_date: date | None) -> None:
 
 @router.get("", response_model=list[SprintRead])
 def list_sprints(
+    response: Response,
     project_id: int | None = Query(default=None),
     status_filter: SprintStatus | None = Query(default=None, alias="status"),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ) -> list[Sprint]:
     query = db.query(Sprint)
@@ -36,7 +39,8 @@ def list_sprints(
         query = query.filter(Sprint.project_id == project_id)
     if status_filter is not None:
         query = query.filter(Sprint.status == status_filter.value)
-    return query.order_by(Sprint.id.desc()).all()
+    response.headers["X-Total-Count"] = str(query.count())
+    return query.order_by(Sprint.id.desc()).offset(offset).limit(limit).all()
 
 
 @router.post("", response_model=SprintRead, status_code=status.HTTP_201_CREATED)
