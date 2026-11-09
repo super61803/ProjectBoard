@@ -75,11 +75,18 @@ def user_work(user_id: int, db: Session = Depends(get_db)) -> dict[str, object]:
 
 
 @router.get("/projects/{project_id}/members", response_model=list[MemberRead])
-def list_members(project_id: int, db: Session = Depends(get_db)) -> list[ProjectMember]:
+def list_members(
+    project_id: int,
+    role: MemberRole | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> list[ProjectMember]:
     project = db.get(Project, project_id)
     if not project:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
-    return db.query(ProjectMember).filter(ProjectMember.project_id == project_id).order_by(ProjectMember.id).all()
+    query = db.query(ProjectMember).filter(ProjectMember.project_id == project_id)
+    if role is not None:
+        query = query.filter(ProjectMember.role == role.value)
+    return query.order_by(ProjectMember.id).all()
 
 
 @router.post("/projects/{project_id}/members", response_model=MemberRead, status_code=status.HTTP_201_CREATED)
