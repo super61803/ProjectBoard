@@ -29,7 +29,7 @@ def list_projects(
 
 @router.post("", response_model=ProjectRead, status_code=status.HTTP_201_CREATED)
 def create_project(payload: ProjectCreate, db: Session = Depends(get_db)) -> Project:
-    existing = db.query(Project).filter(Project.name == payload.name).first()
+    existing = db.query(Project).filter(func.lower(Project.name) == payload.name.lower()).first()
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Project name already exists")
 
@@ -130,7 +130,11 @@ def update_project(project_id: int, payload: ProjectUpdate, db: Session = Depend
     if "name" in data and data["name"] is None:
         del data["name"]
     if "name" in data:
-        clash = db.query(Project).filter(Project.name == data["name"], Project.id != project_id).first()
+        clash = (
+            db.query(Project)
+            .filter(func.lower(Project.name) == data["name"].lower(), Project.id != project_id)
+            .first()
+        )
         if clash:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Project name already exists")
 
