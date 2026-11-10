@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -28,6 +28,7 @@ def list_activity(
 @router.get("/projects/{project_id}/activity", response_model=list[ActivityRead])
 def project_activity(
     project_id: int,
+    response: Response,
     actor_id: int | None = Query(default=None),
     action: ActivityAction | None = Query(default=None),
     since: datetime | None = Query(default=None),
@@ -49,4 +50,5 @@ def project_activity(
         query = query.filter(Activity.created_at >= since)
     if until is not None:
         query = query.filter(Activity.created_at < until)
+    response.headers["X-Total-Count"] = str(query.count())
     return query.order_by(Activity.id.desc()).offset(offset).limit(limit).all()
