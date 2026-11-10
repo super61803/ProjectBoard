@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
@@ -33,12 +33,19 @@ def _ensure_other_owner(db: Session, membership: ProjectMember) -> None:
 
 
 @router.get("/users", response_model=list[UserRead])
-def list_users(q: str | None = Query(default=None, min_length=1), db: Session = Depends(get_db)) -> list[User]:
+def list_users(
+    response: Response,
+    q: str | None = Query(default=None, min_length=1),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+) -> list[User]:
     query = db.query(User)
     if q:
         pattern = f"%{q}%"
         query = query.filter(or_(User.email.ilike(pattern), User.display_name.ilike(pattern)))
-    return query.order_by(User.id.desc()).all()
+    response.headers["X-Total-Count"] = str(query.count())
+    return query.order_by(User.id.desc()).offset(offset).limit(limit).all()
 
 
 @router.post("/users", response_model=UserRead, status_code=status.HTTP_201_CREATED)
