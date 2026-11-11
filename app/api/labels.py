@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -10,11 +10,18 @@ router = APIRouter(tags=["labels"])
 
 
 @router.get("/projects/{project_id}/labels", response_model=list[LabelRead])
-def list_labels(project_id: int, db: Session = Depends(get_db)) -> list[Label]:
+def list_labels(
+    project_id: int,
+    q: str | None = Query(default=None, min_length=1),
+    db: Session = Depends(get_db),
+) -> list[Label]:
     project = db.get(Project, project_id)
     if not project:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
-    return db.query(Label).filter(Label.project_id == project_id).order_by(Label.name).all()
+    query = db.query(Label).filter(Label.project_id == project_id)
+    if q:
+        query = query.filter(Label.name.ilike(f"%{q}%"))
+    return query.order_by(Label.name).all()
 
 
 @router.get("/projects/{project_id}/labels/usage", response_model=list[LabelUsage])
