@@ -13,7 +13,10 @@ router = APIRouter(tags=["activity"])
 @router.get("/issues/{issue_id}/activity", response_model=list[ActivityRead])
 def list_activity(
     issue_id: int,
+    response: Response,
     field: str | None = Query(default=None, min_length=1),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ) -> list[Activity]:
     issue = db.get(Issue, issue_id)
@@ -22,7 +25,8 @@ def list_activity(
     query = db.query(Activity).filter(Activity.issue_id == issue_id)
     if field is not None:
         query = query.filter(Activity.field == field)
-    return query.order_by(Activity.id).all()
+    response.headers["X-Total-Count"] = str(query.count())
+    return query.order_by(Activity.id).offset(offset).limit(limit).all()
 
 
 @router.get("/projects/{project_id}/activity", response_model=list[ActivityRead])
