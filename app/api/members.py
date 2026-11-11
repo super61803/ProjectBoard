@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -36,11 +36,15 @@ def _ensure_other_owner(db: Session, membership: ProjectMember) -> None:
 def list_users(
     response: Response,
     q: str | None = Query(default=None, min_length=1),
+    project_id: int | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ) -> list[User]:
     query = db.query(User)
+    if project_id is not None:
+        members = select(ProjectMember.user_id).where(ProjectMember.project_id == project_id)
+        query = query.filter(User.id.in_(members))
     if q:
         pattern = f"%{q}%"
         query = query.filter(or_(User.email.ilike(pattern), User.display_name.ilike(pattern)))
