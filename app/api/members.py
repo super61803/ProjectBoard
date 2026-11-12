@@ -88,7 +88,10 @@ def user_work(user_id: int, db: Session = Depends(get_db)) -> dict[str, object]:
 @router.get("/projects/{project_id}/members", response_model=list[MemberRead])
 def list_members(
     project_id: int,
+    response: Response,
     role: MemberRole | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ) -> list[ProjectMember]:
     project = db.get(Project, project_id)
@@ -97,7 +100,8 @@ def list_members(
     query = db.query(ProjectMember).filter(ProjectMember.project_id == project_id)
     if role is not None:
         query = query.filter(ProjectMember.role == role.value)
-    return query.order_by(ProjectMember.id).all()
+    response.headers["X-Total-Count"] = str(query.count())
+    return query.order_by(ProjectMember.id).offset(offset).limit(limit).all()
 
 
 @router.post("/projects/{project_id}/members", response_model=MemberRead, status_code=status.HTTP_201_CREATED)
