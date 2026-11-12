@@ -72,6 +72,7 @@ def list_issues(
     blocked: bool | None = Query(default=None),
     overdue: bool | None = Query(default=None),
     due_before: date | None = Query(default=None),
+    due_after: date | None = Query(default=None),
     watcher_id: int | None = Query(default=None),
     unassigned: bool | None = Query(default=None),
     backlog: bool | None = Query(default=None),
@@ -106,6 +107,8 @@ def list_issues(
             query = query.filter(~Issue.inbound_links.any(open_block))
     if due_before is not None:
         query = query.filter(Issue.due_date.is_not(None), Issue.due_date <= due_before)
+    if due_after is not None:
+        query = query.filter(Issue.due_date.is_not(None), Issue.due_date >= due_after)
     if overdue is True:
         query = query.filter(
             Issue.due_date.is_not(None),
