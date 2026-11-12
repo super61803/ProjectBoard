@@ -30,6 +30,7 @@ def list_sprints(
     response: Response,
     project_id: int | None = Query(default=None),
     status_filter: SprintStatus | None = Query(default=None, alias="status"),
+    q: str | None = Query(default=None, min_length=1),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
@@ -39,6 +40,8 @@ def list_sprints(
         query = query.filter(Sprint.project_id == project_id)
     if status_filter is not None:
         query = query.filter(Sprint.status == status_filter.value)
+    if q:
+        query = query.filter(Sprint.name.ilike(f"%{q}%"))
     response.headers["X-Total-Count"] = str(query.count())
     return query.order_by(Sprint.id.desc()).offset(offset).limit(limit).all()
 
